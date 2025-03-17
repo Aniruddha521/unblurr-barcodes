@@ -2,6 +2,14 @@ import cv2
 import numpy as np
 import os
 import matplotlib.pyplot as plt
+import shutil
+from tqdm import tqdm
+
+DATASET_ROOT = "deblurred_stack_images"
+TRAIN_DATASET = "train_dataset"
+
+if not os.path.exists(TRAIN_DATASET):
+    os.mkdir(TRAIN_DATASET)
 
 def align_image(image, reference):
     sift = cv2.SIFT_create()
@@ -23,14 +31,15 @@ def align_image(image, reference):
             good_matches.append(m)
 
     if len(good_matches) < 4:
-        print("⚠️ Not enough keypoints for alignment!")
-        return image  
+        return np.zeros_like(image) 
 
     src_pts = np.float32([kp1[m.queryIdx].pt for m in good_matches]).reshape(-1, 1, 2)
     dst_pts = np.float32([kp2[m.trainIdx].pt for m in good_matches]).reshape(-1, 1, 2)
 
     matrix, _ = cv2.findHomography(src_pts, dst_pts, cv2.RANSAC, 5.0)
-
+    if matrix is None:
+        return np.zeros_like(image)
+    matrix = matrix.astype(np.float32)
     aligned = cv2.warpPerspective(image, matrix, (reference.shape[1], reference.shape[0]))
 
     return aligned
@@ -66,5 +75,25 @@ def multi_frame_fusion(blurry_images):
 
     return fused
 
-blurry_images = os.listdir("clicked_dataset/nb_1")
-blurry_images
+
+if __name__ == "__main__":
+    stack = os.listdir(DATASET_ROOT)
+    for contains in tqdm(stack):
+        src_path = os.path.join(DATASET_ROOT, contains)
+        if not contains.lower().endswith(('.png', '.jpg', '.jpeg')):
+            dest_path = os.path.join(TRAIN_DATASET,"reconstructed")
+            if not os.path.exists(dest_path):
+                os.mkdir(dest_path)
+            blurr_images = os.listdir(src_path)
+            blurr = []
+            for image in blurr_images:
+                blurr.append(cv2.imread(os.path.join(src_path, image)))
+            reconstructed_image = multi_frame_fusion(blurr)
+            dest_path = os.path.join(dest_path, contains)
+            reconstructed_image = 255*reconstructed_image
+            cv2.imwrite(f'{dest_path}.png', reconstructed_image)
+        else:
+            dest_path = os.path.join(TRAIN_DATASET,"target")
+            if not os.path.exists(dest_path):
+                os.mkdir(dest_path)
+            shutil.copy(src_path, dest_path)
