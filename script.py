@@ -90,7 +90,7 @@ if __name__ == "__main__":
                 blurr.append(cv2.imread(os.path.join(src_path, image)))
             reconstructed_image = multi_frame_fusion(blurr)
             dest_path = os.path.join(dest_path, contains)
-            reconstructed_image = 255*reconstructed_image
+            reconstructed_image = 750*reconstructed_image
             cv2.imwrite(f'{dest_path}.png', reconstructed_image)
         else:
             dest_path = os.path.join(TRAIN_DATASET,"target")
